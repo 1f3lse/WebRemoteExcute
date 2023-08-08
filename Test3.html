@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>COMMAND请求与结果展示</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 20px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    form {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    input[type="text"] {
+      width: 500px;
+      padding: 5px;
+      margin-bottom: 10px;
+    }
+
+    input[type="text1"] {
+      width: 700px;
+      padding: 5px;
+      margin-bottom: 10px;
+    }
+
+    input[type="submit"] {
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      margin-bottom: 10px;
+      margin-top: 20px;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    #resultTag {
+      margin-top: 20px;
+    }
+
+    /* 调整单选按钮的宽度为 100px */
+    input[type="radio"] {
+      width: 30px;
+      padding: 5px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>WEB端COMMAND请求与结果展示</h1>
+  <form id="requestForm">
+    <label for="requestPath">请求路径：[服务端web地址]</label>
+    <input type="text" id="requestPath" name="requestPath" required>
+    <br>
+
+    <label>加载位置：[需要加载的exe文件位置，支持本地和http远程]</label>
+    <input type="radio" id="localFlag" name="flag" value="local" required>本地
+    <input type="radio" id="remoteFlag" name="flag" value="remote">远程
+    <br>
+
+    <label for="exePath">EXE 路径：[需要加载的exe文件路径，**如果为远程，会在本地创建exe缓存文件**]</label>
+    <p id="exePathError" style="color: red; font-size: 10px; font-weight: bold; margin-top: 5px; display: none;"></p>
+    <input type="text" id="exePath" name="exePath" required>
+    <br>
+
+    <label>重新加载：[对exe做重新加载操作，主要用于中途切换exe]</label>
+    <input type="radio" id="tagTrue" name="tag" value="True" required>是
+    <input type="radio" id="tagFalse" name="tag" value="False" checked>否 <!-- 设置 'checked' 属性来设定默认值 -->
+    <br>
+
+    <label>命令参数：[需要执行的命令，如CS上线，取消打勾，不加载命令；如执行cmd,打勾，输入命令即可]</label>
+    <input type="checkbox" id="commandParamCheckbox">
+    <input type="text1" id="commandParamInput" disabled>
+    <br>
+    <input type="submit" value="提交" id="submitButton">
+  </form>
+  <label>结果：</label>
+  <div id="resultTag"></div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      // 设置 'tagFalse' 单选按钮在页面加载时为默认选中状态
+      document.getElementById("tagFalse").checked = true;
+
+      const submitButton = document.getElementById("submitButton");
+
+      // 为鼠标按下（按钮被点击）添加事件监听器
+      submitButton.addEventListener("mousedown", function () {
+        this.style.backgroundColor = "#8CC739"; // 鼠标按下时改变按钮背景颜色
+      });
+
+      // 为鼠标抬起（按钮被释放）添加事件监听器
+      submitButton.addEventListener("mouseup", function () {
+        this.style.backgroundColor = "#4CAF50"; // 鼠标抬起时恢复按钮背景颜色
+      });
+
+      commandParamCheckbox.addEventListener("change", function () {
+        commandParamInput.disabled = !this.checked; // 根据复选框状态启用/禁用输入框
+      });
+
+      document.getElementById("requestForm").addEventListener("submit", function (event) {
+        event.preventDefault();
+
+    
+        const requestPath = document.getElementById("requestPath").value;
+        const flag = document.querySelector("input[name='flag']:checked").value;
+        const exePath = document.getElementById("exePath").value;
+        let commandParam = commandParamCheckbox.checked ? commandParamInput.value : "";
+        const tag = document.querySelector("input[name='tag']:checked").value; // 修复：获取 'tag' 单选按钮的值
+
+        function isURL(str) {
+            // Regular expression to check if the input is a URL
+            const urlPattern = /^(http|https):\/\/\S+$/i;
+            return urlPattern.test(str);
+        }
+
+        if (flag === "local" && isURL(exePath)) {
+      exePathError.textContent = "不匹配：选择了本地执行，但可执行文件路径是一个URL。";
+            exePathError.style.display = "block";
+            return;
+        }
+
+        if (flag === "remote" && !isURL(exePath)) {
+            exePathError.textContent = "不匹配：选择了远程执行，但可执行文件路径不是一个URL。";
+            exePathError.style.display = "block";
+            return;
+        }
+
+        // Clear the error message if there was no error
+        exePathError.style.display = "none";
+
+        // 禁用提交按钮
+        submitButton.disabled = true;
+
+        // 检查命令参数是否包含空格或逗号，并按照空格或逗号进行分割成一个数组
+        if (commandParam && (commandParam.includes(" ") || commandParam.includes(","))) {
+          commandParam = commandParam.split(/[\s,]+/); // 用空格或逗号分割
+        }
+
+        // 创建要发送的 JSON 数据对象
+        const data = {
+          flag: flag,
+          tag: tag,
+          exe_path: exePath,
+          args: Array.isArray(commandParam) ? commandParam : [commandParam] // 确保 args 是一个数组
+        };
+
+        // 发送 AJAX 请求，使用 POST 方法
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", requestPath + "/execute");
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.onload = function () {
+          // 启用提交按钮
+          submitButton.disabled = false;
+
+          if (xhr.status === 200) {
+            const response = JSON.parse(xhr.responseText);
+
+            // 检查是否存在 result 字段
+            if ("result" in response) {
+              let result = response.result;
+
+              // 对结果进行转义和格式化
+              result = result.replace(/\r\n/g, "<br/>"); // 将\r\n替换为HTML换行标签
+
+              // 将结果在 resultTag 元素中显示
+              document.getElementById("resultTag").innerHTML = result;
+            } else {
+              // 如果没有 result 字段，显示完整的响应数据
+              document.getElementById("resultTag").innerText = JSON.stringify(response, null, 2);
+            }
+          } else {
+            // 处理 AJAX 请求过程中出现的错误
+            document.getElementById("resultTag").innerText = "错误：" + xhr.statusText;
+          }
+        };
+        xhr.send(JSON.stringify(data));
+      });
+    });
+  </script>
+</body>
+</html>
