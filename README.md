@@ -13,10 +13,10 @@ web版分离加载
 
 
 
-加载被控端本地exe
+加载服务端本地exe
  ![Image text](https://github.com/1f3lse/WebRemoteExcute/blob/main/local.jpg)
 
- 被控端远程加载exe
+ 服务端端远程加载exe
  ![Image text](https://github.com/1f3lse/WebRemoteExcute/blob/main/remote.jpg)
 
 
